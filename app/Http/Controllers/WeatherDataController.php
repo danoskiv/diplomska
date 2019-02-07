@@ -62,13 +62,23 @@ class WeatherDataController extends Controller
                 $indParmName = ucfirst($indParmName["parameterName"]);
                 $hours = ""; 
                 $paramName = strtoupper($paramName["parameterName"]);
+                $period = request()->input('periodInput');
+                $year = request()->input('yearInput');
 
                 $stations = Stations::whereIn('type', [1,2])->get();
                 $parameters = Parameter::whereIn('parameterID', [1,2])->get();
                 $allParms = Parameter::whereIn('parameterID', [3, 4, 9])->get();
 
-                $period = request()->input('periodInput');
-                $year = request()->input('yearInput');
+
+                $keys = array();
+                $values = array();
+                $averagepm10 = array();
+                $averagepm25 = array();
+                $average = array();
+                $i = 0;
+                $j = 0;
+                $temperatures = array();
+                $counterAQI = array();
                 if($period != '5')
                 {
                     switch($period)
@@ -94,6 +104,7 @@ class WeatherDataController extends Controller
 
                 if($parameterId == '3')
                 {
+                    $paramName = "AQI";
                     $tempTable = DB::unprepared(DB::raw(
                         "CREATE TEMPORARY TABLE table_temp 
                             AS (
@@ -107,139 +118,151 @@ class WeatherDataController extends Controller
 
                     if($tempTable)
                     {
+                        $distinctValues = DB::select(DB::raw(
+                            "SELECT distinct(value) from table_temp;"
+                        ));
+
+                        foreach ($distinctValues as $dv) {
+                            $keys[$i] = $dv->value;
+                            $values[$i] = 0;
+                            $temperatures[$i] = $dv->value;
+                            $i++;
+                        }
+
+                        $average = array_combine($keys, $values);
+                        $counterAQI = array_combine($keys, $values);
+
                         $tempValues = DB::select(DB::raw(
                             "SELECT * FROM table_temp;"
                         ));
 
-                        foreach ($tempValues as $value) {
-                            \Debugbar::info("DATE: " . ($value->date_stamp));
-                            //\Debugbar::info("VALUE: " . get_object_vars($value["value"]));
+                        $tempTable2 = DB::unprepared(DB::raw(
+                            "CREATE TEMPORARY TABLE table_temp2
+                                AS (
+                                    select value, date_stamp from SensorData where stationId = " . $stationId . " and parameterId = 1 and date_stamp between '" . $fromDate . "' and '" . $toDate . "');"
+                        ));
+
+                        $tempTable3 = DB::unprepared(DB::raw(
+                            "CREATE TEMPORARY TABLE table_temp3
+                                AS (
+                                    select value, date_stamp from SensorData where stationId = " . $stationId . " and parameterId = 2 and date_stamp between '" . $fromDate . "' and '" . $toDate . "');"
+                        ));
+
+                        if($tempTable2 && $tempTable3)
+                        {
+                            foreach ($tempValues as $value) {
+                                $pm10Values = DB::select(DB::raw(
+                                    "SELECT value as pmValue from table_temp2 where date_stamp = '" . $value->date_stamp . "';"
+                                ));
+
+                                $pm25Values = DB::select(DB::raw(
+                                    "SELECT value as pmValue from table_temp3 where date_stamp = '" . $value->date_stamp . "';"
+                                ));
+
+                                if($pm10Values[0]->pmValue > $pm25Values[0]->pmValue)
+                                    $pm10counter++;
+                                else
+                                    $pm25counter++;
+
+                                $averagepm10[$value->value] += $pm10Values[0]->pmValue;
+                                $averagepm25[$value->value] += $pm25Values[0]->pmValue;
+                                $counterAQI[$value->value] += 1;
+                            }
                         }
 
+                        if($pm10counter > $pm25counter)
+                            $average = $averagepm10;
+                        else
+                            $average = $averagepm25;
+                        
+                        foreach ($average as $key => $value) {
+                            $averageFinal[$j++] = round(($average[$key]/$counterAQI[$key]), 2);
+                        }
                     }
-                    // $paramName = "AQI";
 
-                    // $allTemps = SensorData::select('value')->whereBetween('date_stamp', [$fromDate, $toDate])->where([
-                    //     ['parameterId', '=', $independentParm],
-                    //     ['stationId', '=', $stationId]
-                    // ])->orderBy('value');
-                    // $allTemps = $allTemps->distinct('value')->get();
+                    $dropTables = DB::unprepared(DB::raw(
+                            "DROP TEMPORARY TABLE table_temp; DROP TEMPORARY TABLE table_temp2; DROP TEMPORARY TABLE table_temp3;"
+                        ));
 
-                    // $average = array();
-                    // $averagePM10 = array();
-                    // $i = 0;
-                    // $j = 0;
-                    // $temperatures = array();
-
-                    // foreach ($allTemps as $temp) {
-                    //     $tempDates = SensorData::select('date_stamp')->where([
-                    //         ['parameterId', '=', $independentParm],
-                    //         ['stationId', '=', $stationId]
-                    //     ])->whereIn('value', $temp)->get();
-
-                    //     $avg = 0;
-                    //     $counter = 0;
-                    //     $avg2 = 0;
-                    //     $counter2 = 0;
-
-                    //     $avgValue = SensorData::select('value')->where([
-                    //         ['parameterId', '=', '1'],
-                    //         ['stationId', '=', $stationId]
-                    //     ])->whereIn('date_stamp', $tempDates)->chunk(200, function($values) use (&$avg, &$counter) {
-                    //         foreach ($values as $value) {
-                    //             $avg += $value->value;
-                    //             $counter++;
-                    //         }
-                    //     });
-
-                    //     $avgValue2 = SensorData::select('value')->where([
-                    //         ['parameterId', '=', '2'],
-                    //         ['stationId', '=', $stationId]
-                    //     ])->whereIn('date_stamp', $tempDates)->chunk(200, function($values) use (&$avg2, &$counter2) {
-                    //         foreach ($values as $value) {
-                    //             $avg2 += $value->value;
-                    //             $counter2++;
-                    //         }
-                    //     });
-                    //     $avg = $avg/$counter;
-                    //     $avg = round($avg, 2);
-                    //     $avg2 = $avg2/$counter2;
-                    //     $avg2 = round($avg2, 2);
-
-                    //     $avg = $this->calculateAQI($avg, '1');
-                    //     $avg2 = $this->calculateAQI($avg2, '2');
-
-                    //     $average[$i] = $avg;
-                    //     $average2[$i] = $avg2;
-
-                    //     if($avg > $avg2)
-                    //         $pm25counter++;
-                    //     else if($avg2 > $avg)
-                    //         $pm10counter++;
-
-                    //     $temperatures[$i] = $temp->value;
-                    //     $i++;
-
-                    // }
-
-                    // if($pm10counter >= $pm25counter)
-                    //     $average = $average2;
+                    $average = $averageFinal;
                 }
                 else
                 {
-                    $allTemps = SensorData::select('value')->whereBetween('date_stamp', [$fromDate, $toDate])->where([
-                        ['parameterId', '=', $independentParm],
-                        ['stationId', '=', $stationId]
-                    ])->orderBy('value');
-                    $allTemps = $allTemps->distinct('value')->get();
+                    $tempTable = DB::unprepared(DB::raw(
+                        "CREATE TEMPORARY TABLE table_temp 
+                            AS (
+                            select value,date_stamp 
+                            from SensorData 
+                            where parameterId = " . $independentParm . " and stationId = " . $stationId . " and date_stamp between '" . $fromDate . "' and '" . $toDate . "' and value in 
+                                (select distinct(sd.value) 
+                                from SensorData as sd 
+                                where sd.stationId = " . $stationId . " and sd.parameterId = " . $independentParm . " and sd.date_stamp between '" . $fromDate . "' and '" . $toDate . "' order by sd.value) order by value);"
+                    ));
 
-                    $average = array();
-                    $i = 0;
-                    $j = 0;
-                    $temperatures = array();
+                    if($tempTable)
+                    {
+                        $distinctValues = DB::select(DB::raw(
+                            "SELECT distinct(value) from table_temp;"
+                        ));
 
-                    foreach ($allTemps as $temp) {
-                        $tempDates = SensorData::select('date_stamp')->where([
-                            ['parameterId', '=', $independentParm],
-                            ['stationId', '=', $stationId]
-                        ])->whereIn('value', $temp)->get();
+                        foreach ($distinctValues as $dv) {
+                            $keys[$i] = $dv->value;
+                            $values[$i] = 0;
+                            $temperatures[$i] = $dv->value;
+                            $i++;
+                        }
 
-                        $avg = 0;
-                        $counter = 0;  
+                        $average = array_combine($keys, $values);
+                        $counterAQI = array_combine($keys, $values);
 
-                        $avgValue = SensorData::select('value')->where([
-                            ['parameterId', '=', $parameterId],
-                            ['stationId', '=', $stationId]
-                        ])->whereIn('date_stamp', $tempDates)->chunk(200, function($values) use (&$avg, &$counter) {
-                            foreach ($values as $value) {
-                                $avg += $value->value;
-                                $counter++;
+                        $tempValues = DB::select(DB::raw(
+                            "SELECT * FROM table_temp;"
+                        ));
+
+                        $tempTable2 = DB::unprepared(DB::raw(
+                            "CREATE TEMPORARY TABLE table_temp2
+                                AS (
+                                    select value, date_stamp from SensorData where stationId = " . $stationId . " and parameterId = " . $parameterId . " and date_stamp between '" . $fromDate . "' and '" . $toDate . "');"
+                        ));
+
+                        if($tempTable2)
+                        {
+                            foreach ($tempValues as $value) {
+                                $pmValues = DB::select(DB::raw(
+                                    "SELECT value as pmValue from table_temp2 where date_stamp = '" . $value->date_stamp . "';"
+                                ));
+
+                                $average[$value->value] += $pmValues[0]->pmValue;
+                                $counterAQI[$value->value] += 1;
                             }
-                        });
-                        $avg = $avg/$counter;
-                        $avg = round($avg, 2);
-                        $average[$i] = $avg;
-                        $temperatures[$i] = $temp->value;
-                        $i++;
+
+                            foreach ($average as $key => $value) {
+                                $averageFinal[$j++] = round(($average[$key]/$counterAQI[$key]), 2);
+                            }
+                        }
+
+                        $dropTables = DB::unprepared(DB::raw(
+                            "DROP TEMPORARY TABLE table_temp; DROP TEMPORARY TABLE table_temp2;"
+                        ));
+
+                        $average = $averageFinal;
                     }
                 }
 
-                // if($i > 45)
-                // {
-                //     if($i < 100)
-                //     {
-                //         $temperatures = $this->groupAverageIndexes($temperatures, 3);
-                //         $average = $this->groupAverage($average, 3);
-                //     }
-                //     else
-                //     {
-                //         $temperatures = $this->groupAverageIndexes($temperatures, 6);
-                //         $average = $this->groupAverage($average, 6);
-                //     }
-                // }
+                if(sizeof($average) > 45)
+                {
+                    if(sizeof($average) < 100)
+                    {
+                        $temperatures = $this->groupAverageIndexes($temperatures, 3);
+                        $average = $this->groupAverage($average, 3);
+                    }
+                    else
+                    {
+                        $temperatures = $this->groupAverageIndexes($temperatures, 6);
+                        $average = $this->groupAverage($average, 6);
+                    }
+                }
 
-                $temperatures = '';
-                $average = '';
                 return view('weatherdata.show', [
                     'stationId' => $stationId,
                     'parameterId' => $parameterId,
@@ -257,8 +280,7 @@ class WeatherDataController extends Controller
                     'decision' => $decision,
                     'hours' => $hours,
                     'fromDate' => $fromDate,
-                    'toDate' => $toDate,
-                    'tempValues' => $tempValues
+                    'toDate' => $toDate
                 ]);
                 break;
             
@@ -284,6 +306,16 @@ class WeatherDataController extends Controller
 
                 $period = request()->input('periodInput');
                 $year = request()->input('yearInput');
+
+                $average = array();
+                $average2 = array();
+                $i = 0;
+                $j = 0;
+                $temperatures = array();
+                $nad50 = 0;
+                $nad502 = 0;
+                $vkupno2 = 0;
+                $vkupno = 0; 
                 if($period != '5')
                 {
                     switch($period)
@@ -306,6 +338,111 @@ class WeatherDataController extends Controller
                             break;
                     }
                 }
+
+                // if($parameterId == '3')
+                // {
+                //     $paramName = "AQI";
+                //     $tempTable = DB::unprepared(DB::raw(
+                //         "CREATE TEMPORARY TABLE table_temp 
+                //             AS (
+                //             select value,date_stamp 
+                //             from SensorData 
+                //             where parameterId = " . $independentParm . " and stationId = " . $stationId . " and date_stamp between '" . $fromDate . "' and '" . $toDate . "' and value in 
+                //                 (select distinct(sd.value) 
+                //                 from SensorData as sd 
+                //                 where sd.stationId = " . $stationId . " and sd.parameterId = " . $independentParm . " and sd.date_stamp between '" . $fromDate . "' and '" . $toDate . "' order by sd.value) order by value);"
+                //     ));
+
+                //     if($tempTable)
+                //     {
+                //         $distinctValues = DB::select(DB::raw(
+                //             "SELECT distinct(value) from table_temp;"
+                //         ));
+
+                //         foreach ($distinctValues as $dv) {
+                //             $keys[$i] = $dv->value;
+                //             $values[$i] = 0;
+                //             \Debugbar::info("DV: " . $dv->value);
+                //             $temperatures[$i] = $dv->value;
+                //             $i++;
+                //         }
+
+                //         $i = 0;
+                //         $average = array_combine($keys, $values);
+                //         $counterAQI = array_combine($keys, $values);
+
+                //         $tempValues = DB::select(DB::raw(
+                //             "SELECT * FROM table_temp;"
+                //         ));
+
+                //         $tempTable2 = DB::unprepared(DB::raw(
+                //             "CREATE TEMPORARY TABLE table_temp2
+                //                 AS (
+                //                     select value, date_stamp from SensorData where stationId = " . $stationId . " and parameterId = 1 and date_stamp between '" . $fromDate . "' and '" . $toDate . "');"
+                //         ));
+
+                //         $tempTable3 = DB::unprepared(DB::raw(
+                //             "CREATE TEMPORARY TABLE table_temp3
+                //                 AS (
+                //                     select value, date_stamp from SensorData where stationId = " . $stationId . " and parameterId = 2 and date_stamp between '" . $fromDate . "' and '" . $toDate . "');"
+                //         ));
+
+                //         if($tempTable2 && $tempTable3)
+                //         {
+                //             foreach ($tempValues as $value) {
+                //                 $pm10Values = DB::select(DB::raw(
+                //                     "SELECT value as pmValue from table_temp2 where date_stamp = '" . $value->date_stamp . "';"
+                //                 ));
+
+                //                 $pm25Values = DB::select(DB::raw(
+                //                     "SELECT value as pmValue from table_temp3 where date_stamp = '" . $value->date_stamp . "';"
+                //                 ));
+
+                //                 foreach ($pm10Values as $pm10) {
+                //                     if($pm10->pmValue > 50)
+                //                     {
+                //                         $nad50++;
+                //                         $vkupno++;
+                //                     }
+                //                     else
+                //                         $vkupno++;
+                //                 }
+                                
+                //                 foreach ($pm25Values as $pm25) {
+                //                     if($pm25->pmValue > 50)
+                //                     {
+                //                         $nad502++;
+                //                         $vkupno2++;
+                //                     }
+                //                     else
+                //                         $vkupno2++;
+                //                 }
+
+                //                 $rezultat = $nad50/$vkupno;
+                //                 $rezultat = round($rezultat, 2);
+                //                 $rezultat2 = $nad502/$vkupno2;
+                //                 $rezultat2 = round($rezultat2, 2);
+                //                 $average[$i] = $rezultat;
+                //                 $average2[$i] = $rezultat2;
+                //                 $i++;
+                //                 if($rezultat > $rezultat2)
+                //                     $pm25counter++;
+                //                 else if($rezultat2 > $rezultat)
+                //                     $pm10counter++;
+                //             }
+                //         }
+
+                //         if($pm10counter >= $pm25counter)
+                //             $average = $average2;
+                        
+                //     }
+
+                //     $dropTables = DB::unprepared(DB::raw(
+                //             "DROP TEMPORARY TABLE table_temp; DROP TEMPORARY TABLE table_temp2; DROP TEMPORARY TABLE table_temp3;"
+                //         ));
+
+                //     //$average = $averageFinal;
+                // }
 
                 if($parameterId == '3')
                 {
@@ -637,6 +774,8 @@ class WeatherDataController extends Controller
                     else
                         $sum += 0;
                 }
+                \Debugbar::info("SUM : " . $sum);
+                \Debugbar::info("N: " . $n);
                 array_push($result, round(($sum/$n), 2));
             }
         }

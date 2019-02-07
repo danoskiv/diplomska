@@ -24,9 +24,12 @@ class PredictionsController extends Controller
     {
         $stationId = request()->input('stationInput');
         $parameterId = request()->input('parameterInput');
+        $type = "1";
 
         switch ($id) {
             case '1':
+                $month = request()->input('monthInput');
+                $hour = request()->input('hourInput');
                 $noise = request()->input('noiseInput');
                 $temperature = request()->input('temperatureInput');
                 $humidity = request()->input('humidityInput');
@@ -35,7 +38,9 @@ class PredictionsController extends Controller
                     "humidity" => $humidity,
                     "station" => $stationId,
                     "parameter" => $parameterId,
-                    "noise" => $noise
+                    "noise" => $noise,
+                    "hour" => $hour,
+                    "month" => $month
                 );
                 $values = json_encode($values);
                 $process = new Process(array("regressionSkopjePulse.py", $values));
@@ -52,7 +57,8 @@ class PredictionsController extends Controller
                 return view('predictions.show', [
                     'output' => $output[0],
                     'stations' => $stations,
-                    'parameters' => $parameters
+                    'parameters' => $parameters,
+                    'type' => $type
                 ]);
                 
                 break;
@@ -89,18 +95,24 @@ class PredictionsController extends Controller
                 return view('predictions.show', [
                     'output' => $output,
                     'stations' => $stations,
-                    'parameters' => $parameters
+                    'parameters' => $parameters,
+                    'type' => $type
                 ]);
 
                 break;
             
             case '3':
+                $type = "3";
+                $dateSelected = request()->input('dateInput');
+                $hourSelected = request()->input('timeInput');
                 $values = array(
-                "station" => $station,
-                "parameter" => $parameter
+                    "station" => $stationId,
+                    "parameter" => $parameterId,
+                    "dateSelected" => $dateSelected,
+                    "hourSelected" => $hourSelected
                 );
                 $values = json_encode($values);
-                $process = new Process(array("classification", $values));
+                $process = new Process(array("classification.py", $values));
                 $process->run();
                 if(!$process->isSuccessful()) {
                     throw new ProcessFailedException($process);
@@ -108,6 +120,17 @@ class PredictionsController extends Controller
 
                 $output = $process->getOutput();
                 $output = json_decode($output, true);
+
+                $stations = Stations::whereIn('type', [1,2])->get();
+                $parameters = Parameter::whereIn('parameterId', [1,2])->get();
+                return view('predictions.show', [
+                    'output' => $output,
+                    'stations' => $stations,
+                    'parameters' => $parameters,
+                    'type' => $type,
+                    'dateSelected' => $dateSelected,
+                    'hourSelected' => $hourSelected
+                ]);
 
             default:
                 throw new Exception("Error Processing Request");

@@ -42,10 +42,6 @@
 		<hr><br><br>
 	</div>
 
-	@php
-		var_dump($tempValues);
-	@endphp
-
 	<div class="container">
 	    <div class="row">
 	        <div class="col-12">

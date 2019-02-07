@@ -2,34 +2,47 @@
 @section('title', 'Predictions')
 @section('content')
 	<div class="container">
-    <h2 class="text-center">The calculated value from the regression algorithm is:</h2>
-      @foreach($output as $out)
-  			@if($out > '50' && $out < '100')
-          <h1 class="display-4 text-center alert alert-warning text-dark"><strong>
-            @php
-              $out = floatval($out);
-              $out = round($out, 2);
-              echo $out . " µg/m3";
-            @endphp
-          </strong></h1>
-        @elseif($out > '100')
-          <h1 class="display-4 text-center alert alert-danger text-dark"><strong>
-            @php
-              $out = floatval($out);
-              $out = round($out, 2);
-              echo $out . " µg/m3";
-            @endphp
-          </strong></h1>
-        @else
+      @if($type == '3')
+        <h2 class="text-center">The calculated value from the classification algorithm is:</h2>
+        @if($output[0] == 0)
           <h1 class="display-4 text-center alert alert-success text-dark"><strong>
-            @php
-              $out = floatval($out);
-              $out = round($out, 2);
-              echo $out . " µg/m3";
-            @endphp
+              No or low air pollution predicted for {{ $dateSelected . " at " . $hourSelected . ":00" }} 
+          </strong></h1>
+        @else if($output[0] == 1)
+          <h1 class="display-4 text-center alert alert-danger text-dark"><strong>
+              No or low air pollution predicted for {{ $dateSelected . " " . $hourSelected }}
           </strong></h1>
         @endif
-  		@endforeach
+      @else
+        <h2 class="text-center">The calculated value from the regression algorithm is:</h2>
+        @foreach($output as $out)
+    			@if($out > '50' && $out < '100')
+            <h1 class="display-4 text-center alert alert-warning text-dark"><strong>
+              @php
+                $out = floatval($out);
+                $out = round($out, 2);
+                echo $out . " µg/m3";
+              @endphp
+            </strong></h1>
+          @elseif($out > '100')
+            <h1 class="display-4 text-center alert alert-danger text-dark"><strong>
+              @php
+                $out = floatval($out);
+                $out = round($out, 2);
+                echo $out . " µg/m3";
+              @endphp
+            </strong></h1>
+          @else
+            <h1 class="display-4 text-center alert alert-success text-dark"><strong>
+              @php
+                $out = floatval($out);
+                $out = round($out, 2);
+                echo $out . " µg/m3";
+              @endphp
+            </strong></h1>
+          @endif
+    		@endforeach
+      @endif
     <br><br>
     <h4 class="text-center">Make another prediction now</h4>
     <br>

@@ -38,13 +38,16 @@
 		    	<div class="col-sm-2">
 		    		<select id="timeLabel" class="form-control form-control-lg" name="timeInput">
 		    			@for($i = 0; $i < 23; $i++)
-		    				<option value="{{ $i }}">
-		    					@if($i >= 0 && $i <= 9)
+		    				@if($i >= 0 && $i <= 9)
+		    					<option value="{{ 0 . $i }}">
 		    						{{ "0" . $i }}
-		    					@else
+		    					</option>
+		    				@else
+		    					<option value="{{ strVal($i) }}">
 		    						{{ $i }}
+		    					</option>
 		    					@endif
-		    				</option>
+		    				
 		    			@endfor
 		    		</select>
 				</div>
