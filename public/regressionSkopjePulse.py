@@ -44,7 +44,7 @@ if(os.path.exists(directory)):
 
 
 else:
-	engine = sqlalchemy.create_engine('mysql+pymysql://root:gologaze@localhost:3306/SkopjePulseData')
+	engine = sqlalchemy.create_engine('mysql+pymysql://root:@localhost:3306/SkopjePulseData')
 
 	parameterQuery = "SELECT value FROM SensorData WHERE parameterId = " + parameter + " AND stationId = " + station
 	pmDataset = pd.read_sql_query(parameterQuery, engine)

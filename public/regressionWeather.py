@@ -43,7 +43,7 @@ if(os.path.exists(directory)):
 
 
 else:
-	engine = sqlalchemy.create_engine('mysql+pymysql://root:gologaze@localhost:3306/SkopjePulseData')
+	engine = sqlalchemy.create_engine('mysql+pymysql://root:@localhost:3306/SkopjePulseData')
 	pmQuery = "select value, date_stamp from SensorData where parameterId = " + parameter + " and stationId = " + station + " and date_stamp > '2018-11-20%%' and date_stamp like '%%:4_:%%'"
 	pmDataset = pd.read_sql_query(pmQuery, engine)
 

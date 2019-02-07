@@ -26,7 +26,7 @@ hourMinus = str(int(hourSelected) - 1)
 hourPlus = str(int(hourSelected) + 1)
 
 query = "SELECT value FROM SensorData WHERE parameterId = " + parameter + " AND stationId = " + station + " and date_stamp LIKE \'" + dateSelected + "T" + hourMinus + "%%\'"
-engine = sqlalchemy.create_engine('mysql+pymysql://root:gologaze@localhost:3306/SkopjePulseData')
+engine = sqlalchemy.create_engine('mysql+pymysql://root:@localhost:3306/SkopjePulseData')
 dataset1 = pd.read_sql_query(query, engine)
 
 query2 = "SELECT value FROM SensorData WHERE parameterId = " + parameter + " AND stationId = " + station + " and date_stamp LIKE \'" + dateSelected + "T" + hourSelected + "%%\'"

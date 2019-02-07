@@ -85,7 +85,7 @@ height_in = height_mm / 25.4
 #height_dpi = height_px/height_in 
 
 yesterday = (datetime.now() - timedelta(1)).strftime('%Y-%m-%d')
-engine = sqlalchemy.create_engine('mysql+pymysql://root:gologaze@localhost:3306/SkopjePulseData')
+engine = sqlalchemy.create_engine('mysql+pymysql://root:@localhost:3306/SkopjePulseData')
 
 weatherQuery = "SELECT * FROM SkopjeWeatherAPIData WHERE date_stamp LIKE \'" + yesterday + "%%\'"
 weatherDataset = pd.read_sql_query(weatherQuery, engine)
